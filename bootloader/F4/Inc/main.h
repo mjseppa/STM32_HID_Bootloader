@@ -84,7 +84,7 @@
   */
 
 /* USER CODE BEGIN Private defines */
-
+#define HSE_VALUE  ((uint32_t)25000000U)
 #define USER_CODE_OFFSET  0x4000 //<USER CODE> flash start address.
 
 #define SECTOR_SIZE   1024
@@ -95,11 +95,11 @@
                              
                         
 
-#define BOOT_1_PIN      GPIO_PIN_15 //DIYMROE STM32F407VGT board (Button PD15, LED PE0)
-#define BOOT_1_PORT     GPIOD
+#define BOOT_1_PIN      GPIO_PIN_13 //DIYMROE STM32F407VGT board (Button PD15, LED PE0)
+#define BOOT_1_PORT     GPIOC
 #define BOOT_1_ENABLED  GPIO_PIN_RESET
-#define LED_1_PIN       GPIO_PIN_0
-#define LED_1_PORT      GPIOE
+#define LED_1_PIN       GPIO_PIN_3
+#define LED_1_PORT      GPIOB
        
 // #define BOOT_1_PIN      GPIO_PIN_2 //Black VET6 (http://wiki.stm32duino.com/index.php?title=STM32F407)
 // #define BOOT_1_PORT     GPIOB

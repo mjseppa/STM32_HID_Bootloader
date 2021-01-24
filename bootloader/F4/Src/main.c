@@ -129,25 +129,44 @@ int main(void)
   /* USER CODE BEGIN SysInit */
 
   /* USER CODE BEGIN SysInit */
-  MX_GPIO_Init();
+  //MX_GPIO_Init();
    
   HAL_Delay(100);
   
   magic_val = LL_RTC_BAK_GetRegister(RTC, HID_MAGIC_NUMBER_BKP_INDEX);
   
   /* In case of incoming magic number or <BOOT_1_PIN> is LOW,
-    jump to HID bootloader */
-  if ((magic_val != 0x424C)&&(HAL_GPIO_ReadPin(BOOT_1_PORT, BOOT_1_PIN) != BOOT_1_ENABLED)) {
+   // jump to HID bootloader */
+  //if ((uint32_t*)(void *)
+//  uint32_t flashval = (void(*)(void)) (*((volatile uint32_t *)  (0x800400)));
+  const uint32_t flashval = *(uint32_t *) 0x08004000;
+  const   uint32_t memval = *(uint32_t *) 0x20001FF0;
+  char flash_prog = (flashval != 0xFFFFFFFF);
+  char no_mem_trigger = (0x33 != 0xDEADBEEF);
+//  if (((magic_val != 0x424C) &&(HAL_GPIO_ReadPin(BOOT_1_PORT, BOOT_1_PIN) != BOOT_1_ENABLED)) ) {
+  if ( flash_prog && no_mem_trigger ) {
+
     typedef void (*pFunction)(void);
+    volatile pFunction Jump_To_Application;
+    //uint32_t JumpAddress;
+    
+    //JumpAddress = *(__IO uint32_t*) (FLASH_BASE + USER_CODE_OFFSET + 4);
+    Jump_To_Application = (void(*)(void)) (*((volatile uint32_t *)  (FLASH_BASE + USER_CODE_OFFSET + 4))); //(pFunction) JumpAddress;
+    __set_MSP(*(uint32_t *) (FLASH_BASE + USER_CODE_OFFSET));
+    Jump_To_Application();
+//    while(1);
+
+/*
     pFunction Jump_To_Application;
     uint32_t JumpAddress;
-    
     JumpAddress = *(__IO uint32_t*) (FLASH_BASE + USER_CODE_OFFSET + 4);
     Jump_To_Application = (pFunction) JumpAddress;
-    __set_MSP(*(uint32_t *) (FLASH_BASE + USER_CODE_OFFSET));
-    Jump_To_Application(); 
+     __set_MSP(*(uint32_t *) (FLASH_BASE + USER_CODE_OFFSET));
+    Jump_To_Application();
+*/
   }
   
+  MX_GPIO_Init();
   /* Reset the magic number backup memory */
   
   /* Enable Power Clock */
@@ -242,27 +261,31 @@ void SystemClock_Config(void)
   __HAL_RCC_PWR_CLK_ENABLE();
   __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
 
-  /* Initializes the CPU, AHB and APB busses clocks (72 MHz) */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
-  RCC_OscInitStruct.HSEState = RCC_HSE_ON;
-  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
-  RCC_OscInitStruct.PLL.PLLM = 4;
-  RCC_OscInitStruct.PLL.PLLN = 72;
-  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
-  RCC_OscInitStruct.PLL.PLLQ = 3;
+  // Enable HSE oscillator and activate PLL with HSE as source
+  RCC_OscInitStruct.OscillatorType      = RCC_OSCILLATORTYPE_HSE;
+  //if (bypass == 0) {
+    RCC_OscInitStruct.HSEState          = RCC_HSE_ON; // External 8 MHz xtal on OSC_IN/OSC_OUT
+  //} else {
+  //  RCC_OscInitStruct.HSEState          = RCC_HSE_BYPASS; // External 8 MHz clock on OSC_IN
+  //}
+
+  RCC_OscInitStruct.PLL.PLLState        = RCC_PLL_ON;
+  RCC_OscInitStruct.PLL.PLLSource       = RCC_PLLSOURCE_HSE;
+  RCC_OscInitStruct.PLL.PLLM            = 25;             // VCO input clock = 1 MHz (8 MHz / 8)
+  RCC_OscInitStruct.PLL.PLLN            = 336;           // VCO output clock = 336 MHz (1 MHz * 336)
+  RCC_OscInitStruct.PLL.PLLP            = RCC_PLLP_DIV4; // PLLCLK = 84 MHz (336 MHz / 4)
+  RCC_OscInitStruct.PLL.PLLQ            = 7;             // USB clock = 48 MHz (336 MHz / 7) --> OK for USB
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK) {
     _Error_Handler(__FILE__, __LINE__);
   }
 
   /* Initializes the CPU, AHB and APB busses clocks  */
-  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK |
-  RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_PCLK1 |
-  RCC_CLOCKTYPE_PCLK2;
-  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
-  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
-  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
+  // Select PLL as system clock source and configure the HCLK, PCLK1 and PCLK2 clocks dividers
+  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
+  RCC_ClkInitStruct.SYSCLKSource   = RCC_SYSCLKSOURCE_PLLCLK; // 84 MHz
+  RCC_ClkInitStruct.AHBCLKDivider  = RCC_SYSCLK_DIV1;         // 84 MHz
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;           // 42 MHz
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;           // 84 MHz
   if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_5) != HAL_OK) {
     _Error_Handler(__FILE__, __LINE__);
   }
