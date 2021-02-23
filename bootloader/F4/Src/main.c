@@ -141,29 +141,16 @@ int main(void)
 //  uint32_t flashval = (void(*)(void)) (*((volatile uint32_t *)  (0x800400)));
   const uint32_t flashval = *(uint32_t *) 0x08004000;
   const   uint32_t memval = *(uint32_t *) 0x20001FF0;
-  char flash_prog = (flashval != 0xFFFFFFFF);
-  char no_mem_trigger = (0x33 != 0xDEADBEEF);
-//  if (((magic_val != 0x424C) &&(HAL_GPIO_ReadPin(BOOT_1_PORT, BOOT_1_PIN) != BOOT_1_ENABLED)) ) {
+  char flash_prog = (flashval != 0xFFFFFFFF); // Bootloader if memory is empty
+  char no_mem_trigger = (magic_val != 0x424C);
   if ( flash_prog && no_mem_trigger ) {
 
     typedef void (*pFunction)(void);
     volatile pFunction Jump_To_Application;
-    //uint32_t JumpAddress;
-    
-    //JumpAddress = *(__IO uint32_t*) (FLASH_BASE + USER_CODE_OFFSET + 4);
     Jump_To_Application = (void(*)(void)) (*((volatile uint32_t *)  (FLASH_BASE + USER_CODE_OFFSET + 4))); //(pFunction) JumpAddress;
     __set_MSP(*(uint32_t *) (FLASH_BASE + USER_CODE_OFFSET));
     Jump_To_Application();
-//    while(1);
 
-/*
-    pFunction Jump_To_Application;
-    uint32_t JumpAddress;
-    JumpAddress = *(__IO uint32_t*) (FLASH_BASE + USER_CODE_OFFSET + 4);
-    Jump_To_Application = (pFunction) JumpAddress;
-     __set_MSP(*(uint32_t *) (FLASH_BASE + USER_CODE_OFFSET));
-    Jump_To_Application();
-*/
   }
   
   MX_GPIO_Init();
